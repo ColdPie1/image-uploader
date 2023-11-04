@@ -8,10 +8,11 @@ header('Content-type: text/html');
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-label {margin: 15px; }
-input {margin: 15px; }
-button {margin: 15px; }
+label {margin-top: 10px; }
+input {margin-top: 10px; }
+button {margin-top: 10px; }
 pre {background: #DDD; }
 </style>
 <script>
@@ -117,12 +118,6 @@ function do_upload()
 {
     echo("Doing upload...\n");
 
-    if(!isset($_FILES["img"]) ||
-            $_FILES["img"]["size"] <= 0){
-        echo("Nothing to upload!\n");
-        return;
-    }
-
     $upload_info = $_FILES["img"];
 
     $filename = $upload_info["name"];
@@ -136,7 +131,7 @@ function do_upload()
         return;
     }
 
-    $rename = $_POST["rename"];
+    $rename = trim($_POST["rename"]);
     if($rename){
         $base = $rename;
     }
@@ -180,11 +175,17 @@ function valid($pw1, $pw2)
 //print_r($_FILES);
 
 if(isset($_POST["passwd1"])){
-    $passwd1 = $_POST["passwd1"];
-    $passwd2 = $_POST["passwd2"];
+    $passwd1 = trim($_POST["passwd1"]);
+    $passwd2 = trim($_POST["passwd2"]);
 
     if(valid($passwd1, $passwd2)){
-        do_upload();
+        if(isset($_FILES["img"]) &&
+                $_FILES["img"]["size"] > 0){
+            do_upload();
+        }else{
+            global $do_list;
+            $do_list = true;
+        }
     }else{
         echo("Invalid pw.");
     }
@@ -194,27 +195,30 @@ if(isset($_POST["passwd1"])){
 <?php
 
 if(isset($filenames_to_copy)){
+    $full_fname = $filenames_to_copy[0][1];
+    $full_url = $MY_URL . rawurlencode($filenames_to_copy[0][1]);
 ?>
+    <label><a href="<?php echo($full_url); ?>"><?php echo($full_fname); ?></a></label><br>
     <label>URL:</label>
 <?php
     foreach($filenames_to_copy as $fname){
         $display = $fname[0];
-        $name = $MY_URL . $fname[1];
+        $name = $MY_URL . rawurlencode($fname[1]);
 ?>
-        <input style="display:none;" type="text" readonly id="<?php echo($display); ?>" value="<?php echo($name); ?>">
-        <button onclick="copy('<?php echo($display); ?>')"><?php echo($display); ?></button>
+        <input style="display:none;" type="text" readonly id="<?php echo($display); ?>url" value="<?php echo($name); ?>">
+        <button onclick="copy('<?php echo($display); ?>url')"><?php echo($display); ?></button>
 <?php
     }
 ?>
 
-    <br><label>PHPBB:</label>
+    <br><label>[img]:</label>
 <?php
     foreach($filenames_to_copy as $fname){
         $display = $fname[0];
-        $name = "[img]" . $MY_URL . $fname[1] . "[/img]";
+        $name = "[img]" . $MY_URL . rawurlencode($fname[1]) . "[/img]";
 ?>
-        <input style="display:none;" type="text" readonly id="<?php echo($display); ?>" value="<?php echo($name); ?>">
-        <button onclick="copy('<?php echo($display); ?>')"><?php echo($display); ?></button>
+        <input style="display:none;" type="text" readonly id="<?php echo($display); ?>phpbb" value="<?php echo($name); ?>">
+        <button onclick="copy('<?php echo($display); ?>phpbb')"><?php echo($display); ?></button>
 <?php
     }
 ?>
@@ -224,21 +228,43 @@ if(isset($filenames_to_copy)){
 ?>
 
 <form method="post" enctype="multipart/form-data">
-<label for="Secret">Secret</label>
-<input type="text" id="passwd1" name="passwd1">
+<label for="Secret">Secret</label><br>
+<input type="text" id="passwd1" name="passwd1"><br>
 <input type="text" id="passwd2" name="passwd2"><br>
 
-<label for="rename">Rename?</label>
-<input type="text" id="rename" name="rename">
+<label for="rename">Rename?</label><br>
+<input type="text" id="rename" name="rename" autocapitalize="off"><br>
 <label for="overwrite">OW?</label>
 <input type="checkbox" id="overwrite" name="overwrite"><br>
 
-<label for="img">Image</label>
 <input type="file" id="img" name="img" accept="image/png,image/jpeg,image/webp,image/gif" /><br>
 
 <input type="submit" value="Submit" />
 
 </form>
+
+<?php
+if(isset($do_list) && $do_list){
+?>
+<hr>
+<?php
+    $idx = 0;
+    foreach(glob("*.{jpg,png,webp,gif}", GLOB_BRACE) as $filename){
+        $url = $MY_URL . rawurlencode($filename);
+        $phpbb = "[img]" . $url . "[/img]";
+        $id = "btn" . $idx;
+        $idx++;
+?>
+    <label><a href="<?php echo($url); ?>"><?php echo($filename); ?></a></label>
+    <button onclick="copy('<?php echo($id); ?>url')">URL</button>
+    <button onclick="copy('<?php echo($id); ?>phpbb')">[img]</button>
+    <input style="display:none;" type="text" readonly id="<?php echo($id); ?>url" value="<?php echo($url); ?>">
+    <input style="display:none;" type="text" readonly id="<?php echo($id); ?>phpbb" value="<?php echo($phpbb); ?>"><br>
+
+<?php
+    }
+}
+?>
 
 </body>
 </html>
