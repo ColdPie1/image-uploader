@@ -33,6 +33,11 @@ function copy(name) {
 
 <pre><?php
 
+function is_checked($id)
+{
+    return isset($_POST[$id]) && $_POST[$id] == "on";
+}
+
 function get_dims($w, $h, $max_w)
 {
     if ($max_w >= $w) {
@@ -135,12 +140,16 @@ function do_upload()
     if($rename){
         $base = $rename;
     }
+
+    if(is_checked("add_date")){
+        $base = $base . "_" . date('Ymd', time());
+    }
+
     $filename = $base . "." . $ext;
 
     if(file_exists($filename)){
         echo("File \"$filename\" already exists!\n");
-        $overwrite = isset($_POST["overwrite"]) && $_POST["overwrite"] == "on";
-        if(!$overwrite){
+        if(!is_checked("overwrite")){
             echo("Exiting.\n");
             return;
         }
@@ -173,6 +182,11 @@ function valid($pw1, $pw2)
 
 //print_r($_POST);
 //print_r($_FILES);
+$passwd1_default = "";
+$passwd2_default = "";
+$rename_default = "";
+$overwrite_default = "";
+$add_date_default = " checked";
 
 if(isset($_POST["passwd1"])){
     $passwd1 = trim($_POST["passwd1"]);
@@ -186,6 +200,11 @@ if(isset($_POST["passwd1"])){
             global $do_list;
             $do_list = true;
         }
+        $passwd1_default = " value=\"$passwd1\"";
+        $passwd2_default = " value=\"$passwd2\"";
+        $rename_default = " value=\"" . trim($_POST["rename"]) . "\"";
+        $overwrite_default = is_checked("overwrite") ? " checked" : "";
+        $add_date_default = is_checked("add_date") ? " checked" : "";
     }else{
         echo("Invalid pw.");
     }
@@ -228,14 +247,18 @@ if(isset($filenames_to_copy)){
 ?>
 
 <form method="post" enctype="multipart/form-data">
-<label for="Secret">Secret</label><br>
-<input type="text" id="passwd1" name="passwd1"><br>
-<input type="text" id="passwd2" name="passwd2"><br>
+<label>Secret</label><br>
+<input type="text" <?php echo($passwd1_default); ?> id="passwd1" name="passwd1"><br>
+<input type="text"<?php echo($passwd2_default); ?> id="passwd2" name="passwd2"><br>
 
 <label for="rename">Rename?</label><br>
-<input type="text" id="rename" name="rename" autocapitalize="off"><br>
-<label for="overwrite">OW?</label>
-<input type="checkbox" id="overwrite" name="overwrite"><br>
+<input type="text"<?php echo($rename_default); ?> id="rename" name="rename" autocapitalize="off"><br>
+
+<label for="overwrite">Overwrite?</label>
+<input type="checkbox" id="overwrite" name="overwrite"<?php echo($overwrite_default); ?>><br>
+
+<label for="add_date">Date?</label>
+<input type="checkbox" id="add_date" name="add_date"<?php echo($add_date_default); ?>><br>
 
 <input type="file" id="img" name="img" accept="image/png,image/jpeg,image/webp,image/gif" /><br>
 
