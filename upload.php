@@ -38,6 +38,14 @@ function is_checked($id)
     return isset($_POST[$id]) && $_POST[$id] == "on";
 }
 
+function get_sequence()
+{
+    if(isset($_POST["sequence"]) && $_POST["sequence"] != ""){
+        return intval(trim($_POST["sequence"]));
+    }
+    return -1;
+}
+
 function get_dims($w, $h, $max_w)
 {
     if ($max_w >= $w) {
@@ -52,7 +60,7 @@ function get_dims($w, $h, $max_w)
 function resize($image, $max_w, $suffix)
 {
     list($new_w, $new_h) = get_dims(imagesx($image), imagesy($image), $max_w);
-    $img_sm = imagescale($image, $new_w, $new_h);
+    $img_sm = imagescale($image, $new_w, $new_h, IMG_BICUBIC);
     if(!$img_sm){
         echo("error in scale");
         return;
@@ -145,6 +153,11 @@ function do_upload()
         $base = $base . "_" . date('Ymd', time());
     }
 
+    $seq = get_sequence();
+    if($seq >= 0){
+        $base = $base . "_" . $seq;
+    }
+
     $filename = $base . "." . $ext;
 
     if(file_exists($filename)){
@@ -167,6 +180,7 @@ function do_upload()
 
     echo("Beginning resize...\n");
     $filenames = make_smaller($filename);
+    echo("Resize done.\n");
 
     global $filenames_to_copy;
     $filenames_to_copy = array_merge(array(["full", $filename]), $filenames);
@@ -185,26 +199,37 @@ function valid($pw1, $pw2)
 $passwd1_default = "";
 $passwd2_default = "";
 $rename_default = "";
+$sequence_default = "";
 $overwrite_default = "";
 $add_date_default = " checked";
+$do_list = false;
 
 if(isset($_POST["passwd1"])){
     $passwd1 = trim($_POST["passwd1"]);
     $passwd2 = trim($_POST["passwd2"]);
 
     if(valid($passwd1, $passwd2)){
+        $do_list = true;
+        $seq = get_sequence();
+
         if(isset($_FILES["img"]) &&
                 $_FILES["img"]["size"] > 0){
             do_upload();
-        }else{
-            global $do_list;
-            $do_list = true;
+
+            if($seq >= 0){
+                $seq++;
+            }
         }
+
         $passwd1_default = " value=\"$passwd1\"";
         $passwd2_default = " value=\"$passwd2\"";
         $rename_default = " value=\"" . trim($_POST["rename"]) . "\"";
         $overwrite_default = is_checked("overwrite") ? " checked" : "";
         $add_date_default = is_checked("add_date") ? " checked" : "";
+
+        if($seq >= 0){
+            $sequence_default = " value=\"" . $seq . "\"";
+        }
     }else{
         echo("Invalid pw.");
     }
@@ -254,6 +279,9 @@ if(isset($filenames_to_copy)){
 <label for="rename">Rename?</label><br>
 <input type="text"<?php echo($rename_default); ?> id="rename" name="rename" autocapitalize="off"><br>
 
+<label for="sequence">Sequence?</label><br>
+<input type="number"<?php echo($sequence_default); ?> id="sequence" name="sequence"><br>
+
 <label for="overwrite">Overwrite?</label>
 <input type="checkbox" id="overwrite" name="overwrite"<?php echo($overwrite_default); ?>><br>
 
@@ -267,7 +295,7 @@ if(isset($filenames_to_copy)){
 </form>
 
 <?php
-if(isset($do_list) && $do_list){
+if($do_list){
 ?>
 <hr>
 <?php
