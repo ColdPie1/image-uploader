@@ -3,12 +3,14 @@
 $MY_URL = "https://your_host/dir_containing_this_file/";
 
 header('Content-type: text/html');
+header('X-Robots-Tag: noindex');
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
 <style>
 label {margin-top: 10px; }
 input {margin-top: 10px; }
