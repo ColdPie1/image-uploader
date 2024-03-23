@@ -88,6 +88,132 @@ function clean_extension($suffix)
     return null;
 }
 
+function load_pel()
+{
+    set_include_path("./pel/" . PATH_SEPARATOR . get_include_path());
+    require_once "Pel.php";
+    require_once "PelException.php";
+    require_once "PelDataWindowOffsetException.php";
+    require_once "PelDataWindowWindowException.php";
+    require_once "PelIfdException.php";
+    require_once "PelIllegalFormatException.php";
+    require_once "PelInvalidArgumentException.php";
+    require_once "PelMakerNotesMalformedException.php";
+    require_once "PelOverflowException.php";
+    require_once "PelEntryException.php";
+    require_once "PelUnexpectedFormatException.php";
+    require_once "PelWrongComponentCountException.php";
+    require_once "PelConvert.php";
+    require_once "PelDataWindow.php";
+    require_once "PelEntry.php";
+    require_once "PelEntryNumber.php";
+    require_once "PelEntryAscii.php";
+    require_once "PelEntryByte.php";
+    require_once "PelEntryCopyright.php";
+    require_once "PelEntryLong.php";
+    require_once "PelEntryRational.php";
+    require_once "PelEntrySByte.php";
+    require_once "PelEntryShort.php";
+    require_once "PelEntrySLong.php";
+    require_once "PelEntrySRational.php";
+    require_once "PelEntrySShort.php";
+    require_once "PelEntryTime.php";
+    require_once "PelEntryUndefined.php";
+    require_once "PelEntryUserComment.php";
+    require_once "PelEntryVersion.php";
+    require_once "PelEntryWindowsString.php";
+    require_once "PelJpegContent.php";
+    require_once "PelFormat.php";
+    require_once "PelTag.php";
+    require_once "PelInvalidDataException.php";
+    require_once "PelMakerNotes.php";
+    require_once "PelCanonMakerNotes.php";
+    require_once "PelIfd.php";
+    require_once "PelTiff.php";
+    require_once "PelExif.php";
+    require_once "PelJpegComment.php";
+    require_once "PelJpegInvalidMarkerException.php";
+    require_once "PelJpegMarker.php";
+    require_once "PelJpeg.php";
+}
+
+function copy_ifd($into_ifd, $from_ifd)
+{
+    $forbidden_tags = [
+        lsolesen\pel\PelTag::PIXEL_X_DIMENSION,
+        lsolesen\pel\PelTag::PIXEL_Y_DIMENSION,
+        lsolesen\pel\PelTag::X_RESOLUTION,
+        lsolesen\pel\PelTag::Y_RESOLUTION,
+        lsolesen\pel\PelTag::RESOLUTION_UNIT,
+        lsolesen\pel\PelTag::ORIENTATION, //accounted for during resize
+    ];
+
+    foreach($from_ifd->getEntries() as $tag => $v){
+        if(!in_array($tag, $forbidden_tags)){
+            //echo("copying $tag -> $v\n");
+            $into_ifd->addEntry($v);
+        }else{
+            //$tagname = lsolesen\pel\PelTag::getName($v->getIfdType(), $v->getTag());
+            //echo("NOT copying " . $tagname . "\n");
+        }
+    }
+
+    foreach($from_ifd->getSubIfds() as $key => $from_subifd){
+        $into_subifd = new lsolesen\pel\PelIfd($key);
+        $into_ifd->addSubIfd($into_subifd);
+        copy_ifd($into_subifd, $from_subifd);
+    }
+
+    $from_nextifd = $from_ifd->getNextIfd();
+    if($from_nextifd){
+        $into_nextifd = new lsolesen\pel\PelIfd($from_nextifd->getType());
+        $into_ifd->setNextIfd($into_nextifd);
+        copy_ifd($into_nextifd, $from_nextifd);
+    }
+}
+
+function merge_metadata($filename_into, $filename_from)
+{
+    echo("Merging JPEG metadata.\n");
+    load_pel();
+
+    $from_jpeg = new lsolesen\pel\PelJpeg($filename_from);
+
+    /* copy exif stuff */
+    $from_exif = $from_jpeg->getExif();
+    if($from_exif){
+        $from_ifd = $from_exif->getTiff()->getIfd();
+
+        $into_jpeg = new lsolesen\pel\PelJpeg($filename_into);
+        $into_exif = $into_jpeg->getExif();
+        if(!$into_exif){
+            $into_exif = new lsolesen\pel\PelExif();
+            $into_tiff = new lsolesen\pel\PelTiff();
+            $into_ifd = new lsolesen\pel\PelIfd(lsolesen\pel\PelIfd::IFD0);
+            $into_tiff->setIfd($into_ifd);
+            $into_exif->setTiff($into_tiff);
+            $into_jpeg->setExif($into_exif);
+        }else{
+            $into_ifd = $into_exif->getTiff()->getIfd();
+        }
+
+//        echo("------------------------------------------------------ FROM: ----------------------------------------------\n$from_ifd\n");
+//        echo("------------------------------------------------------ INTO BEFORE: ---------------------------------------\n$into_ifd\n");
+
+        copy_ifd($into_ifd, $from_ifd);
+
+//        echo("------------------------------------------------------ INTO AFTER: ----------------------------------------\n$into_ifd\n");
+    }
+
+    /* copy icc data */
+    $from_icc = $from_jpeg->getICC();
+    if($from_icc){
+        $into_jpeg->setICC($from_icc);
+    }
+
+    $into_jpeg->saveFile($filename_into);
+}
+
 function make_smaller($filename, $orientation)
 {
     $pivot = strrpos($filename, ".");
@@ -152,7 +278,9 @@ function make_smaller($filename, $orientation)
 
     if($ext == "jpg"){
         imagejpeg($img_s, $fname_s);
+        merge_metadata($fname_s, $filename);
         imagejpeg($img_t, $fname_t);
+        merge_metadata($fname_t, $filename);
     }else if($ext == "png"){
         imagepng($img_s, $fname_s);
         imagepng($img_t, $fname_t);
@@ -169,51 +297,8 @@ function make_smaller($filename, $orientation)
 
 function strip_exif($filename_from, $filename_to)
 {
-    set_include_path("./pel/" . PATH_SEPARATOR . get_include_path());
-    require_once "Pel.php";
-    require_once "PelException.php";
-    require_once "PelDataWindowOffsetException.php";
-    require_once "PelDataWindowWindowException.php";
-    require_once "PelIfdException.php";
-    require_once "PelIllegalFormatException.php";
-    require_once "PelInvalidArgumentException.php";
-    require_once "PelMakerNotesMalformedException.php";
-    require_once "PelOverflowException.php";
-    require_once "PelEntryException.php";
-    require_once "PelUnexpectedFormatException.php";
-    require_once "PelWrongComponentCountException.php";
-    require_once "PelConvert.php";
-    require_once "PelDataWindow.php";
-    require_once "PelEntry.php";
-    require_once "PelEntryNumber.php";
-    require_once "PelEntryAscii.php";
-    require_once "PelEntryByte.php";
-    require_once "PelEntryCopyright.php";
-    require_once "PelEntryLong.php";
-    require_once "PelEntryRational.php";
-    require_once "PelEntrySByte.php";
-    require_once "PelEntryShort.php";
-    require_once "PelEntrySLong.php";
-    require_once "PelEntrySRational.php";
-    require_once "PelEntrySShort.php";
-    require_once "PelEntryTime.php";
-    require_once "PelEntryUndefined.php";
-    require_once "PelEntryUserComment.php";
-    require_once "PelEntryVersion.php";
-    require_once "PelEntryWindowsString.php";
-    require_once "PelJpegContent.php";
-    require_once "PelFormat.php";
-    require_once "PelTag.php";
-    require_once "PelInvalidDataException.php";
-    require_once "PelMakerNotes.php";
-    require_once "PelCanonMakerNotes.php";
-    require_once "PelIfd.php";
-    require_once "PelTiff.php";
-    require_once "PelExif.php";
-    require_once "PelJpegComment.php";
-    require_once "PelJpegInvalidMarkerException.php";
-    require_once "PelJpegMarker.php";
-    require_once "PelJpeg.php";
+    echo("Cleaning JPEG metadata.\n");
+    load_pel();
 
     $orientation = 1; /* no change needed */
 
