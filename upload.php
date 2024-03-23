@@ -62,8 +62,11 @@ function resize($image, $max_w, $suffix)
     list($new_w, $new_h) = get_dims(imagesx($image), imagesy($image), $max_w);
     $img_sm = imagescale($image, $new_w, $new_h, IMG_BICUBIC);
     if(!$img_sm){
-        echo("error in scale");
-        return;
+        $img_sm = imagescale($image, $new_w, $new_h/*, default scaling */);
+        if(!$img_sm){
+            echo("Error in imagescale!\n");
+            return;
+        }
     }
     return array($img_sm, $new_w, $new_h);
 }
@@ -82,10 +85,10 @@ function clean_extension($suffix)
     if(strcasecmp($suffix, "gif") == 0){
         return "gif";
     }
-    return "";
+    return null;
 }
 
-function make_smaller($filename)
+function make_smaller($filename, $orientation)
 {
     $pivot = strrpos($filename, ".");
     $base = substr($filename, 0, $pivot);
@@ -102,11 +105,48 @@ function make_smaller($filename)
         $image = imagecreatefromgif($filename);
     }
 
+    switch($orientation){
+        case 1:
+            break;
+        case 2:
+            imageflip($image, IMG_FLIP_HORIZONTAL);
+            break;
+        case 3:
+            $image = imagerotate($image, 180, 0);
+            break;
+        case 4:
+            imageflip($image, IMG_FLIP_VERTICAL);
+            break;
+        case 5:
+            $image = imagerotate($image, -90, 0);
+            imageflip($image, IMG_FLIP_HORIZONTAL);
+            break;
+        case 6:
+            $image = imagerotate($image, -90, 0);
+            break;
+        case 7:
+            $image = imagerotate($image, 90, 0);
+            imageflip($image, IMG_FLIP_HORIZONTAL);
+            break;
+        case 8:
+            $image = imagerotate($image, 90, 0);
+            break;
+        default:
+            echo("Invalid orientation! Continuing with resize anyway.");
+            break;
+    }
+
     list($img_s, $w, $h) = resize($image, 800, "s");
+    if(!$img_s){
+        return;
+    }
     $fname_s = $base . "_s." . $ext;
     echo("Saving $w" . "x$h image at \"$fname_s\".\n");
 
     list($img_t, $w, $h) = resize($image, 400, "t");
+    if(!$img_s){
+        return;
+    }
     $fname_t = $base . "_t." . $ext;
     echo("Saving $w" . "x$h image at \"$fname_t\".\n");
 
@@ -127,6 +167,89 @@ function make_smaller($filename)
     return array(["s", $fname_s], ["t", $fname_t]);
 }
 
+function strip_exif($filename_from, $filename_to)
+{
+    set_include_path("./pel/" . PATH_SEPARATOR . get_include_path());
+    require_once "Pel.php";
+    require_once "PelException.php";
+    require_once "PelDataWindowOffsetException.php";
+    require_once "PelDataWindowWindowException.php";
+    require_once "PelIfdException.php";
+    require_once "PelIllegalFormatException.php";
+    require_once "PelInvalidArgumentException.php";
+    require_once "PelMakerNotesMalformedException.php";
+    require_once "PelOverflowException.php";
+    require_once "PelEntryException.php";
+    require_once "PelUnexpectedFormatException.php";
+    require_once "PelWrongComponentCountException.php";
+    require_once "PelConvert.php";
+    require_once "PelDataWindow.php";
+    require_once "PelEntry.php";
+    require_once "PelEntryNumber.php";
+    require_once "PelEntryAscii.php";
+    require_once "PelEntryByte.php";
+    require_once "PelEntryCopyright.php";
+    require_once "PelEntryLong.php";
+    require_once "PelEntryRational.php";
+    require_once "PelEntrySByte.php";
+    require_once "PelEntryShort.php";
+    require_once "PelEntrySLong.php";
+    require_once "PelEntrySRational.php";
+    require_once "PelEntrySShort.php";
+    require_once "PelEntryTime.php";
+    require_once "PelEntryUndefined.php";
+    require_once "PelEntryUserComment.php";
+    require_once "PelEntryVersion.php";
+    require_once "PelEntryWindowsString.php";
+    require_once "PelJpegContent.php";
+    require_once "PelFormat.php";
+    require_once "PelTag.php";
+    require_once "PelInvalidDataException.php";
+    require_once "PelMakerNotes.php";
+    require_once "PelCanonMakerNotes.php";
+    require_once "PelIfd.php";
+    require_once "PelTiff.php";
+    require_once "PelExif.php";
+    require_once "PelJpegComment.php";
+    require_once "PelJpegInvalidMarkerException.php";
+    require_once "PelJpegMarker.php";
+    require_once "PelJpeg.php";
+
+    $orientation = 1; /* no change needed */
+
+    $jpeg = new lsolesen\pel\PelJpeg($filename_from);
+    $exif = $jpeg->getExif();
+
+    if(!$exif){
+        /* nothing to strip, just move it directly */
+        move_uploaded_file($upload_info["tmp_name"], $filename);
+        return $orientation;
+    }
+
+    $ifd = $exif->getTiff()->getIfd();
+    //echo("$ifd");
+    while($ifd != null){
+        /* remove GPS subifd from each ifd */
+        if($ifd->getSubIfd(lsolesen\pel\PelIfd::GPS)){
+            echo("Removing GPS data.\n");
+            $ifd->removeSubIfd(lsolesen\pel\PelIfd::GPS);
+        }
+
+        /* search for orientation tag */
+        if(isset($ifd[lsolesen\pel\PelTag::ORIENTATION])){
+            $v = $ifd[lsolesen\pel\PelTag::ORIENTATION];
+            echo("Detected orientation: " . $v->getValue() . " (" . $v->getText() . ").\n");
+            $orientation = $v->getValue();
+        }
+
+        $ifd = $ifd->getNextIfd();
+    }
+
+    $jpeg->saveFile($filename_to);
+
+    return $orientation;
+}
+
 function do_upload()
 {
     echo("Doing upload...\n");
@@ -139,8 +262,8 @@ function do_upload()
     $base = substr($filename, 0, $pivot);
     $suffix = substr($filename, $pivot + 1);
     $ext = clean_extension($suffix);
-    if($ext == ""){
-        echo("Unsupported filetype: $suffix\n");
+    if(!$ext){
+        echo("Unsupported filetype: $suffix!\n");
         return;
     }
 
@@ -161,25 +284,27 @@ function do_upload()
     $filename = $base . "." . $ext;
 
     if(file_exists($filename)){
-        echo("File \"$filename\" already exists!\n");
+        echo("File \"$filename\" already exists!");
         if(!is_checked("overwrite")){
-            echo("Exiting.\n");
+            echo(" Exiting.\n");
             return;
         }
-        echo("Continuing anyway.\n");
+        echo(" Overwrite set, so continuing anyway.\n");
     }
 
     echo("Placing uploaded file at \"$filename\".\n");
     if($ext == "jpg"){
-        /* rewrite to strip EXIF data */
-        $image = imagecreatefromjpeg($upload_info["tmp_name"]);
-        imagejpeg($image, $filename);
+        $orientation = strip_exif($upload_info["tmp_name"], $filename);
     }else{
         move_uploaded_file($upload_info["tmp_name"], $filename);
+        $orientation = 1; /* no change needed */
     }
 
     echo("Beginning resize...\n");
-    $filenames = make_smaller($filename);
+    $filenames = make_smaller($filename, $orientation);
+    if(!$filenames){
+        return;
+    }
     echo("Resize done.\n");
 
     global $filenames_to_copy;
@@ -188,7 +313,7 @@ function do_upload()
     echo("Upload complete.\n");
 }
 
-function valid($pw1, $pw2)
+function secret_valid($pw1, $pw2)
 {
     /* TODO: implement your clever auth idea here */
     return false;
@@ -208,7 +333,7 @@ if(isset($_POST["passwd1"])){
     $passwd1 = trim($_POST["passwd1"]);
     $passwd2 = trim($_POST["passwd2"]);
 
-    if(valid($passwd1, $passwd2)){
+    if(secret_valid($passwd1, $passwd2)){
         $do_list = true;
         $seq = get_sequence();
 
@@ -231,7 +356,7 @@ if(isset($_POST["passwd1"])){
             $sequence_default = " value=\"" . $seq . "\"";
         }
     }else{
-        echo("Invalid pw.");
+        echo("Invalid secret.");
     }
 }
 ?></pre>

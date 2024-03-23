@@ -1401,6 +1401,11 @@ class PelIfd implements \IteratorAggregate, \ArrayAccess
         $this->sub[$sub->type] = $sub;
     }
 
+    public function removeSubIfd($type)
+    {
+        unset($this->sub[$type]);
+    }
+
     /**
      * Return a sub IFD.
      *
