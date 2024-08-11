@@ -35,6 +35,10 @@ label {margin-top: 10px; }
 input {margin-top: 10px; }
 button {margin-top: 10px; }
 pre {background: #DDD; }
+img {
+    max-width: 100%;
+    filter: drop-shadow( #666666 2px 2px 4px );
+}
 </style>
 <script>
 function copy(name) {
