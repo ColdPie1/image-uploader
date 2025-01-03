@@ -427,12 +427,12 @@ function do_upload()
     if(!$filenames){
         return;
     }
+
     echo("Resize done.\n");
 
-    global $filenames_to_copy;
-    $filenames_to_copy = array_merge(array(["full", $filename]), $filenames);
-
     echo("Upload complete.\n");
+
+    return array_merge(array(["full", $filename]), $filenames);
 }
 
 function gen_autogallery($filename)
@@ -509,7 +509,7 @@ function do_main()
 
             if(isset($_FILES["img"]) &&
                     $_FILES["img"]["size"] > 0){
-                do_upload();
+                $filenames_to_copy = do_upload();
 
                 if($seq >= 0){
                     $seq++;
