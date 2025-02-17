@@ -1,7 +1,7 @@
 <?php
 /*  Simple image uploader script.
  *
- *  Copyright (C) 2024  Andrew Eikum
+ *  Copyright (C) 2024, 2025 Andrew Eikum
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,11 +18,10 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-/* TODO: fill in URL */
-$MY_URL = "https://your_host/dir_containing_this_file/";
-
 header('Content-type: text/html');
 header('X-Robots-Tag: noindex');
+
+require_once "user.php"
 ?>
 
 <!DOCTYPE html>
@@ -474,12 +473,6 @@ function gen_autogallery($filename)
         return implode(",", $out);
     }
 
-    return false;
-}
-
-function secret_valid($pw1, $pw2)
-{
-    /* TODO: implement your clever auth idea here */
     return false;
 }
 

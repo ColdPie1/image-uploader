@@ -14,10 +14,11 @@ Features:
 
 Installation:
 -Requires PHP 8 or later.
--Edit upload.php and fix up the couple of TODO entries. You will need
- to add your URL and implement an authentication algorithm (like, a simple
- password string check or something, this isn't Fort Knox).
--Then just drop the files in this repo on your host (upload.php and pel/ dir).
+-Edit user.php and resolve the couple of TODO entries. You will need to add
+ your URL and implement an authentication algorithm. (Like a simple password
+ string check or something. This isn't Fort Knox.)
+-Then just drop the files in this repo on your host (upload.php, user.php, and
+ the pel/ dir).
 -You may need to configure your PHP installation. For example I have:
   file_uploads = True
   max_input_time = 60
