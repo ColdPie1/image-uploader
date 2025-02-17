@@ -34,6 +34,7 @@ label {margin-top: 10px; }
 input {margin-top: 10px; }
 button {margin-top: 10px; }
 pre {background: #DDD; }
+.idx {font-family: monospace; font-size: x-large; }
 img {
     max-width: 100%;
     filter: drop-shadow( #666666 2px 2px 4px );
@@ -586,12 +587,49 @@ function do_main()
 <?php
     if($do_list){
 ?>
-    <hr>
+    <hr />
 <?php
         $idx = 0;
         $filenames = glob("*.{jpg,png,webp,gif}", GLOB_BRACE);
         natcasesort($filenames);
+        $cur_letter = null;
         foreach($filenames as $filename){
+            if(is_numeric($filename[0])){
+                $this_letter = '#';
+                $anchor = "alpha_num";
+            }else{
+                $this_letter = strtoupper($filename[0]);
+                $anchor = "alpha_" . $this_letter;
+            }
+
+            if($this_letter == $cur_letter)
+                continue;
+
+            /* new letter */
+            $cur_letter = $this_letter;
+?>
+            <a class="idx" href="#<?php echo($anchor); ?>"><?php echo($cur_letter); ?></a>
+<?php
+        }
+?>
+        <hr />
+<?php
+        $cur_anchor = null;
+        foreach($filenames as $filename){
+            /* anchors */
+            if(is_numeric($filename[0])){
+                $this_anchor = "alpha_num";
+            }else{
+                $this_anchor = "alpha_" . strtoupper($filename[0]);
+            }
+            if($this_anchor != $cur_anchor){
+                /* new letter */
+                $cur_anchor = $this_anchor;
+                $anchor = " id=\"$this_anchor\"";
+            }else{
+                $anchor = "";
+            }
+
             $url = $MY_URL . rawurlencode($filename);
             $phpbb = "[img]" . $url . "[/img]";
             $autogallery = gen_autogallery($filename);
@@ -600,19 +638,15 @@ function do_main()
             $id = "btn" . $idx;
             $idx++;
 ?>
-        <label><a href="<?php echo($url); ?>"><?php echo($filename); ?></a></label>
-        <button onclick="copy('<?php echo($id); ?>url')">URL</button>
-        <button onclick="copy('<?php echo($id); ?>phpbb')">[img]</button>
-        <input style="display:none;" type="text" readonly id="<?php echo($id); ?>url" value="<?php echo($url); ?>">
-        <input style="display:none;" type="text" readonly id="<?php echo($id); ?>phpbb" value="<?php echo($phpbb); ?>">
+            <label<?php echo($anchor); ?>><a href="<?php echo($url); ?>"><?php echo($filename); ?></a></label>
+            <button onclick="copy('<?php echo($id); ?>url')">URL</button>
+            <button onclick="copy('<?php echo($id); ?>phpbb')">[img]</button>
+            <input style="display:none;" type="text" readonly id="<?php echo($id); ?>url" value="<?php echo($url); ?>">
+            <input style="display:none;" type="text" readonly id="<?php echo($id); ?>phpbb" value="<?php echo($phpbb); ?>">
 <?php
-        if($autogallery){
-            /*
-            <button onclick="copy('<?php echo($id); ?>autogallery')">gallery</button>
-            <input style="display:none;" type="text" readonly id="<?php echo($id); ?>autogallery" value="<?php echo($autogallery); ?>">
-             */
+            if($autogallery){
 ?>
-            <a href="<?php echo($autogallery); ?>">gallery</a>
+                <a href="<?php echo($autogallery); ?>">gallery</a>
 <?php
         }
 ?>
