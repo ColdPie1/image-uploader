@@ -215,13 +215,14 @@ function merge_metadata($filename_into, $filename_from)
     load_pel();
 
     $from_jpeg = new lsolesen\pel\PelJpeg($filename_from);
+    $into_jpeg = new lsolesen\pel\PelJpeg($filename_into);
+    $modified = false;
 
     /* copy exif stuff */
     $from_exif = $from_jpeg->getExif();
     if($from_exif){
         $from_ifd = $from_exif->getTiff()->getIfd();
 
-        $into_jpeg = new lsolesen\pel\PelJpeg($filename_into);
         $into_exif = $into_jpeg->getExif();
         if(!$into_exif){
             $into_exif = new lsolesen\pel\PelExif();
@@ -240,15 +241,20 @@ function merge_metadata($filename_into, $filename_from)
         copy_ifd($into_ifd, $from_ifd);
 
 //        echo("------------------------------------------------------ INTO AFTER: ----------------------------------------\n$into_ifd\n");
+
+        $modified = true;
     }
 
     /* copy icc data */
     $from_icc = $from_jpeg->getICC();
     if($from_icc){
         $into_jpeg->setICC($from_icc);
+        $modified = true;
     }
 
-    $into_jpeg->saveFile($filename_into);
+    if($modified){
+        $into_jpeg->saveFile($filename_into);
+    }
 }
 
 function make_smaller($filename, $orientation)
@@ -344,7 +350,7 @@ function strip_exif($filename_from, $filename_to)
 
     if(!$exif){
         /* nothing to strip, just move it directly */
-        move_uploaded_file($upload_info["tmp_name"], $filename);
+        move_uploaded_file($filename_from, $filename_to);
         return $orientation;
     }
 
